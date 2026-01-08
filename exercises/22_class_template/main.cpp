@@ -10,6 +10,10 @@ struct Tensor4D {
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
         // TODO: 填入正确的 shape 并计算 size
+        for (auto i = 0; i < 4; ++i) {
+            shape[i] = shape_[i];
+            size *= shape[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -28,6 +32,33 @@ struct Tensor4D {
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
         // TODO: 实现单向广播的加法
+        unsigned int stride_this[4];
+        unsigned int stride_others[4];
+        stride_this[3] = 1;
+        stride_others[3] = 1;
+        for (int i = 2; i >= 0; --i) {
+            stride_this[i] = stride_this[i + 1] * shape[i + 1];
+            stride_others[i] = stride_others[i + 1] * others.shape[i + 1];
+        }
+        // 检查形状兼容性
+        for (auto i = 0; i < 4; ++i) {
+            if (shape[i] != others.shape[i] && shape[i] != 1 && others.shape[i] != 1) {
+                throw std::runtime_error("Tensor shape mismatch.");
+            }
+        }
+        // 计算 size
+        unsigned int size = 1;
+        for (auto i = 0; i < 4; ++i) size *= shape[i];
+        // 执行加法
+        for (auto i = 0u; i < size; ++i) {
+            unsigned int index = 0;
+            for (auto j = 0; j < 4; ++j) {
+                unsigned int coord = (i / stride_this[j]) % shape[j];
+                if (others.shape[j] == 1) coord = 0;
+                index += coord * stride_others[j];
+            }
+            data[i] += others.data[index];
+        }
         return *this;
     }
 };
